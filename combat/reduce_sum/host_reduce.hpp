@@ -1,5 +1,6 @@
 #pragma once
 
+#include "stdlib.h"
 #include "omp.h"
 
 namespace combat {
