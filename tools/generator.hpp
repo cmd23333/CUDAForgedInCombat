@@ -99,6 +99,33 @@ std::vector<T> generate_constant_sequence(std::size_t length, T value) {
     return std::vector<T>(length, value);
 }
 
+template <class T>
+std::vector<T> generate_batch_tensor(std::size_t batch, std::size_t height, std::size_t width, std::size_t depth, T min=0, T max=1, int seed=-1) {
+    if (seed < 0) {
+        std::random_device rd;
+        seed = rd();
+    }
+
+    auto num_elements = batch * height * width * depth;
+    std::vector<T> matrix;
+    matrix.reserve(num_elements);
+
+    std::default_random_engine generator{static_cast<unsigned int>(seed)};
+    if constexpr (std::is_same_v<T, int>) {
+        std::uniform_int_distribution<int> dist(min, max);
+        for (std::size_t i=0; i<num_elements; ++i)
+            matrix.push_back(dist(generator));
+
+    } else {
+        std::uniform_real_distribution<T> dist(min, max);
+        for (std::size_t i=0; i<num_elements; ++i)
+            matrix.push_back(dist(generator));
+    }
+
+    return matrix;
+}
+
+
 } // namespace tools
 
 } // namespace combat
