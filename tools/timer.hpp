@@ -17,9 +17,9 @@ public:
 
     ~Timer() {
         auto finish_time = std::chrono::steady_clock::now();
-        auto duration_ms = std::chrono::duration_cast<std::chrono::milliseconds>(finish_time - _start_time).count();
+        auto duration_ms = std::chrono::duration_cast<std::chrono::microseconds>(finish_time - _start_time).count();
 
-        std::cout << "time cost: " << duration_ms << " milli-seconds" << std::endl;
+        std::cout << "time cost: " << duration_ms << " micro-seconds" << std::endl;
         std::cout << ">>>>>>>>>>>>> finish " << _tag << " <<<<<<<<<<<<<" << std::endl;
     }
 
