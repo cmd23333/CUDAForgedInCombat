@@ -1,1 +1,1 @@
-add_executable(reduce_combat ${CMAKE_CURRENT_SOURCE_DIR}/examination.cpp)
+add_executable(reduce_combat ${CMAKE_CURRENT_SOURCE_DIR}/examination.cu)
