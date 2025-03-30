@@ -26,11 +26,15 @@ void check_result(T* ground_truth, T* calculate_result, std::size_t height, std:
     } else {
         std::cout << "Fail " << tag << std::endl;
         if (num_elements < 100) {
-            tools::show_matrix(ground_truth, width, "ground truth");
-            tools::show_matrix(calculate_result, width, "calculate result");
+            tools::show_matrix(ground_truth, height, width, "ground truth");
+            tools::show_matrix(calculate_result, height, width, "calculate result");
         }
     }
 }
+
+} // namespace matrix_multiply
+
+} // namespace combat
 
 int main() {
     // generate matrix
@@ -42,8 +46,8 @@ int main() {
     std::size_t constexpr out_width = mat2_width;
     std::size_t constexpr num_out_element = out_height * out_width;
 
-    auto mat1 = tools::generate_ladder_matrix<int>(mat2_height, mat2_width);
-    auto mat2 = tools::generate_ones_matrix<int>(mat1_height, mat1_width);
+    auto mat1 = combat::tools::generate_ladder_matrix<int>(mat2_height, mat2_width);
+    auto mat2 = combat::tools::generate_ones_matrix<int>(mat1_height, mat1_width);
     // mat1: [[0, 0, ..., 0], [1, 1, ..., 1], ... , [n-1, n-1, ..., n-1]]
     // mat2: all 1
     // let S=sum(1,2,...n) out should be (if both squared matrix)
@@ -60,15 +64,11 @@ int main() {
         std::vector<int> out;
         out.reserve(num_out_element);
         {
-            auto t = tools::Timer(tag);
-            matrix_multiply_host<int>(out.data(), mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
+            auto t = combat::tools::Timer(tag);
+            combat::matrix_multiply::matrix_multiply_host<int>(out.data(), mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
         }
-        check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
+        combat::matrix_multiply::check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
     }
 
     return 0;
 }
-
-} // namespace matrix_multiply
-
-} // namespace combat
