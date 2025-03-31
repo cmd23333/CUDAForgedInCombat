@@ -13,7 +13,7 @@ std::vector<T> matrix_multiply_host(T const* mat1, T const *mat2, std::size_t ma
 
         提示: 选择最高效的循环顺序
     */
-    auto out = std::vector<T>(0, mat1_height*mat2_width);
+    auto out = std::vector<T>(mat1_height*mat2_width, 0);
 
     for (std::size_t i=0; i<mat1_height; ++i) {
         for (std::size_t k=0; k<mat1_width; ++k) {
