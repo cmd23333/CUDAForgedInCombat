@@ -1,4 +1,5 @@
 #include "combat/matrix_multiply/host_matrix_multiply.hpp"
+#include "combat/matrix_multiply/device_matrix_multiply_basic.cuh"
 
 #include "tools/generator.hpp"
 #include "tools/show.hpp"
@@ -25,7 +26,7 @@ void check_result(T* ground_truth, T* calculate_result, std::size_t height, std:
         std::cout << "Pass " << tag << std::endl;
     } else {
         std::cout << "Fail " << tag << std::endl;
-        if (num_elements < 100) {
+        if (num_elements < 257) {
             tools::show_matrix(ground_truth, height, width, "ground truth");
             tools::show_matrix(calculate_result, height, width, "calculate result");
         }
@@ -38,16 +39,16 @@ void check_result(T* ground_truth, T* calculate_result, std::size_t height, std:
 
 int main() {
     // generate matrix
-    std::size_t constexpr mat1_height = 1 << 10;
-    std::size_t constexpr mat1_width  = 1 << 10;
+    std::size_t constexpr mat1_height = 16;
+    std::size_t constexpr mat1_width  = 16;
     std::size_t constexpr mat2_height = mat1_width;
-    std::size_t constexpr mat2_width  = 1 << 10;
+    std::size_t constexpr mat2_width  = 16;
     std::size_t constexpr out_height = mat1_height;
     std::size_t constexpr out_width = mat2_width;
     std::size_t constexpr num_out_element = out_height * out_width;
 
-    auto mat1 = combat::tools::generate_ladder_matrix<int>(mat2_height, mat2_width);
-    auto mat2 = combat::tools::generate_ones_matrix<int>(mat1_height, mat1_width);
+    auto mat1 = combat::tools::generate_ladder_matrix<int>(mat1_height, mat1_width);
+    auto mat2 = combat::tools::generate_ones_matrix<int>(mat2_height, mat2_width);
     // mat1: [[0, 0, ..., 0], [1, 1, ..., 1], ... , [n-1, n-1, ..., n-1]]
     // mat2: all 1
     // let S=sum(1,2,...n) out should be (if both squared matrix)
@@ -61,12 +62,27 @@ int main() {
     // quiz 1: calculate in host cpu
     {
         auto const *tag = "matrix multiply host";
-        std::vector<int> out;
-        out.reserve(num_out_element);
-        {
-            auto t = combat::tools::Timer(tag);
-            combat::matrix_multiply::matrix_multiply_host<int>(out.data(), mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
-        }
+
+        auto t = combat::tools::Timer(tag);
+        auto out = combat::matrix_multiply::matrix_multiply_host<int>(mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
+        combat::matrix_multiply::check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
+    }
+
+    // quiz 2: calculate in device cuda trival
+    {
+        auto const *tag = "matrix multiply cuda trival";
+
+        auto t = combat::tools::Timer(tag);
+        auto out = combat::matrix_multiply::matrix_multiply_trival<int>(mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
+        combat::matrix_multiply::check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
+    }
+
+    // quiz 3: calculate in device cuda tiling
+    {
+        auto const *tag = "matrix multiply cuda tiling";
+
+        auto t = combat::tools::Timer(tag);
+        auto out = combat::matrix_multiply::matrix_multiply_tiling<int>(mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
         combat::matrix_multiply::check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
     }
 
