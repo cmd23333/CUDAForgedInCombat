@@ -1,6 +1,10 @@
 #pragma once
+
+#include <string.h>
 #include <cmath>
 #include <numeric>
+
+#include "tools/show.hpp"
 #include "combat/matrix_multiply/host_matrix_multiply.hpp"
 
 namespace combat {
@@ -18,7 +22,7 @@ std::vector<T> scaled_matmul(T const *a, T const *b, std::size_t m, std::size_t 
     for (std::size_t i=0; i<m; ++i) {
         for (std::size_t j=0; j<n; ++j) {
             for (std::size_t k_=0; k_<k; ++k_) {
-                out[i*n+j] += a[i*k+k_] * b[j*n+k_];
+                out[i*n+j] += a[i*k+k_] * b[j*k+k_];
             }
             out[i*n+j] /= std::sqrt(k);
         }
@@ -38,18 +42,21 @@ void online_softmax(
         (因此没复用 matrix_multiply::matrix_multiply_host, TODO(cmd2333): 给 matrix_multiply_host 加入相关功能)
         o_tile = o_tile * exp(old_max-new_max) * old_sum / new_sum + exp(q_tile * k_tile.T - new_max) / new_sum * v_tile
     */
-    
+    tools::show_matrix(old_max, 1, q_tile_height, "old max");
+    tools::show_matrix(old_sum, 1, q_tile_height, "old sum");
+
     auto a_tile_vec = scaled_matmul(q_tile, k_tile, q_tile_height, depth, k_tile_height);
     T *a_tile = a_tile_vec.data();
+    tools::show_matrix(a_tile, q_tile_height, k_tile_height, "q@k.T / sqrt(d)");
 
     T *new_max = (T *)malloc(q_tile_height*sizeof(T));
     T *new_sum = (T *)malloc(q_tile_height*sizeof(T));
+    memcpy(new_max, old_max, q_tile_height*sizeof(T));
 
     const auto a_tile_height = q_tile_height;
     const auto a_tile_width = k_tile_height;
 
     for (std::size_t a_tile_row_index=0; a_tile_row_index < a_tile_height; ++a_tile_row_index) {
-        new_max[a_tile_row_index] = std::numeric_limits<T>::min();
         for (std::size_t a_tile_col_index=0; a_tile_col_index < a_tile_width; ++a_tile_col_index) {
             new_max[a_tile_row_index] = std::max(new_max[a_tile_row_index], a_tile[a_tile_row_index * a_tile_width + a_tile_col_index]);
         }
@@ -63,6 +70,9 @@ void online_softmax(
             new_sum[a_tile_row_index] += std::exp(a_tile[a_tile_row_index * a_tile_width + a_tile_col_index] - new_max[a_tile_row_index]);
         }
     }
+
+    tools::show_matrix(new_max, 1, q_tile_height, "max");
+    tools::show_matrix(new_sum, 1, q_tile_height, "sum");
 
     const auto o_tile_height = q_tile_height;
     const auto o_tile_width = depth;
@@ -78,8 +88,10 @@ void online_softmax(
             // a_tile_width == k_tile_height == v_tile_height
             // a_tile: [m, n], v_tile: [n, d]
             // o_tile: [m, d]
-            for (std::size_t a_tile_col_index=0; a_tile_col_index < a_tile_width; ++a_tile_col_index)
-                o_ij += a_tile[o_tile_row_index * a_tile_width + a_tile_col_index] * v_tile[a_tile_col_index * v_tile_width + o_tile_col_index];
+            for (std::size_t a_tile_col_index=0; a_tile_col_index < a_tile_width; ++a_tile_col_index) {
+                T const a_tile_ik = std::exp(a_tile[o_tile_row_index * a_tile_width + a_tile_col_index] - new_max[o_tile_row_index]) / new_sum[o_tile_row_index];
+                o_ij += a_tile_ik * v_tile[a_tile_col_index * v_tile_width + o_tile_col_index];
+            }
 
             o_tile[o_tile_row_index * depth + o_tile_col_index] += o_ij;
         }
@@ -119,7 +131,9 @@ void online_single_head_attention(
     
     // max_ 和 sum_ 保存了 attention 矩阵每一行当前的 最大值/去指数后求和
     T *max_ = (T *)malloc(seq_len*sizeof(T));
+    for (std::size_t i=0; i<seq_len; ++i) max_[i] = std::numeric_limits<T>::lowest();
     T *sum_ = (T *)malloc(seq_len*sizeof(T));
+    memset(sum_, 0, seq_len*sizeof(T));
 
     // 我们保证 num_k_tile == num_v_tile
     for (size_t k_or_v_tile_index=0; k_or_v_tile_index<num_k_tile; ++k_or_v_tile_index) {
