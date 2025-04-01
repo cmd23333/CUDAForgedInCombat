@@ -57,14 +57,20 @@ std::vector<T> generate_ones_matrix(std::size_t height, std::size_t width) {
 }
 
 template <class T>
-std::vector<T> generate_ladder_matrix(std::size_t height, std::size_t width) {
+std::vector<T> generate_ladder_matrix(std::size_t height, std::size_t width, bool reverse=false) {
     auto num_elements = height * width;
     std::vector<T> matrix;
     matrix.reserve(num_elements);
 
-    for (std::size_t i=0; i<height; ++i)
-        for (std::size_t j=0; j<width; ++j)
-            matrix.push_back(i);
+    if (reverse) {
+        for (std::size_t i=0; i<height; ++i)
+            for (std::size_t j=0; j<width; ++j)
+                matrix.push_back(j);
+    } else {
+        for (std::size_t i=0; i<height; ++i)
+            for (std::size_t j=0; j<width; ++j)
+                matrix.push_back(i);
+    }
 
     return matrix;
 }
@@ -125,6 +131,17 @@ std::vector<T> generate_batch_tensor(std::size_t batch, std::size_t height, std:
     return matrix;
 }
 
+template <class T>
+std::vector<T> generate_constant_batch_tensor(std::size_t batch, std::size_t height, std::size_t width, std::size_t depth, T value) {
+    auto num_elements = batch * height * width * depth;
+    std::vector<T> matrix;
+    matrix.reserve(num_elements);
+
+    for (std::size_t i=0; i<num_elements; ++i)
+        matrix.push_back(value);
+
+    return matrix;
+}
 
 } // namespace tools
 
