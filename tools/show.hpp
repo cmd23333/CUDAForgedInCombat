@@ -1,4 +1,5 @@
 #pragma once
+#include <iomanip>
 #include <iostream>
 #include <vector>
 
@@ -11,6 +12,8 @@ void show_matrix(T const *matrix, std::size_t height, std::size_t width, char co
     if (tag != nullptr)
         std::cout << "show matrix: " << tag << std::endl;
 
+    auto default_settings = std::cout.flags();
+    std::cout << std::setprecision(5) << std::fixed;
     for (std::size_t i=0; i<height; ++i) {
         auto base = i*width;
         for (std::size_t j=0; j<width; ++j) {
@@ -18,6 +21,8 @@ void show_matrix(T const *matrix, std::size_t height, std::size_t width, char co
         }
         std::cout << std::endl;
     }
+
+    std::cout.flags(default_settings);
 }
 
 template <class T>
