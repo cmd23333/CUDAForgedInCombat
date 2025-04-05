@@ -96,9 +96,9 @@ __global__ void kernel_matrix_multiply_tiling(
     T element_value_in_out = 0;
     for (int tile_index=0; tile_index < number_tiles_in_mat1_per_row; ++tile_index) {
         // mat1_tile 沿着 mat1 的行移动
-        T const mat1_tile_upper_left = y_out_tile * mat1_width + tile_index * TileSize;
+        int const mat1_tile_upper_left = y_out_tile * mat1_width + tile_index * TileSize;
         // mat2_tile 沿着 mat2 的列移动
-        T const mat2_tile_upper_left = tile_index * TileSize * mat2_width + x_out_tile;
+        int const mat2_tile_upper_left = tile_index * TileSize * mat2_width + x_out_tile;
 
         shared_tile_in_mat1[row_index_in_tile][col_index_in_tile] = mat1[mat1_tile_upper_left + row_index_in_tile * mat1_width + col_index_in_tile];
         shared_tile_in_mat2[row_index_in_tile][col_index_in_tile] = mat2[mat2_tile_upper_left + row_index_in_tile * mat2_width + col_index_in_tile];

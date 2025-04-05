@@ -40,10 +40,10 @@ void check_result(T* ground_truth, T* calculate_result, std::size_t height, std:
 
 int main() {
     // generate matrix
-    std::size_t constexpr mat1_height = 16;
-    std::size_t constexpr mat1_width  = 16;
+    std::size_t constexpr mat1_height = 1024;
+    std::size_t constexpr mat1_width  = 1024;
     std::size_t constexpr mat2_height = mat1_width;
-    std::size_t constexpr mat2_width  = 16;
+    std::size_t constexpr mat2_width  = 1024;
     std::size_t constexpr out_height = mat1_height;
     std::size_t constexpr out_width = mat2_width;
     std::size_t constexpr num_out_element = out_height * out_width;
@@ -60,7 +60,6 @@ int main() {
         for (std::size_t j=0; j<mat2_width; ++j)
             ground_truth.push_back(i*mat1_width);
 
-#if 0
     // quiz 1: calculate in host cpu
     {
         auto const *tag = "matrix multiply host";
@@ -87,7 +86,7 @@ int main() {
         auto out = combat::matrix_multiply::matrix_multiply_tiling<float>(mat1.data(), mat2.data(), mat1_height, mat1_width, mat2_width);
         combat::matrix_multiply::check_result(ground_truth.data(), out.data(), out_height, out_width, tag);
     }
-#endif
+
     // quiz 4: calculate in device cuda tensor core
     {
         auto const *tag = "matrix multiply cuda tensor core";
