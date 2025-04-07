@@ -38,7 +38,7 @@ void online_softmax(
     std::size_t q_tile_height, std::size_t depth, std::size_t k_tile_height
 ) {
     /*
-        逻辑上 q_tile * k_tile.T, 实际上我们不会对 k_tile 做转置 
+        逻辑上 q_tile * k_tile.T, 实际上我们不会对 k_tile 做转置
         (因此没复用 matrix_multiply::matrix_multiply_host, TODO(cmd2333): 给 matrix_multiply_host 加入相关功能)
         o_tile = o_tile * exp(old_max-new_max) * old_sum / new_sum + exp(q_tile * k_tile.T - new_max) / new_sum * v_tile
     */
@@ -83,7 +83,7 @@ void online_softmax(
         auto const o_adjust_coef = std::exp(old_max[o_tile_row_index] - new_max[o_tile_row_index]) * old_sum[o_tile_row_index] / new_sum[o_tile_row_index];
         for (std::size_t o_tile_col_index=0; o_tile_col_index < o_tile_width; ++o_tile_col_index) {
             o_tile[o_tile_row_index * depth + o_tile_col_index] = o_tile[o_tile_row_index * depth + o_tile_col_index] * o_adjust_coef;
-            
+
             T o_ij = 0;
             // a_tile_width == k_tile_height == v_tile_height
             // a_tile: [m, n], v_tile: [n, d]
@@ -106,7 +106,7 @@ void online_softmax(
 
 template<class T>
 void online_single_head_attention(
-    T *single_O, T const *single_Q, T const *single_K, T const *single_V, 
+    T *single_O, T const *single_Q, T const *single_K, T const *single_V,
     std::size_t seq_len, std::size_t depth
 ) {
     /*
@@ -128,7 +128,7 @@ void online_single_head_attention(
     size_t const num_k_tile = seq_len / k_tile_height;
     size_t const num_v_tile = seq_len / v_tile_height;
     size_t const num_o_tile = seq_len / o_tile_height;
-    
+
     // max_ 和 sum_ 保存了 attention 矩阵每一行当前的 最大值/去指数后求和
     T *max_ = (T *)malloc(seq_len*sizeof(T));
     for (std::size_t i=0; i<seq_len; ++i) max_[i] = std::numeric_limits<T>::lowest();
@@ -141,17 +141,17 @@ void online_single_head_attention(
         auto const shift_to_k_or_v_tile = k_or_v_tile_index * v_tile_height * tile_width;
         T const *k_tile = single_K + shift_to_k_or_v_tile;
         T const *v_tile = single_V + shift_to_k_or_v_tile;
-        
+
         // 保证 num_q_tile == num_v_tile
         for (size_t q_or_v_tile_index=0; q_or_v_tile_index < num_q_tile; ++q_or_v_tile_index) {
             // 内层循环, 取出 q_tile 和 o_tile
             auto const shift_to_q_or_o_tile = q_or_v_tile_index * q_tile_height * tile_width;
-            T const *q_tile = single_Q + q_or_v_tile_index * tile_width * q_tile_height; 
+            T const *q_tile = single_Q + q_or_v_tile_index * tile_width * q_tile_height;
             T *o_tile = single_O + q_or_v_tile_index * tile_width * q_tile_height;
 
             online_softmax(
-                o_tile, q_tile, k_tile, v_tile, 
-                &max_[q_or_v_tile_index * q_tile_height], &sum_[q_or_v_tile_index * q_tile_height], 
+                o_tile, q_tile, k_tile, v_tile,
+                &max_[q_or_v_tile_index * q_tile_height], &sum_[q_or_v_tile_index * q_tile_height],
                 q_tile_height, depth, k_tile_height
             );
         }
@@ -163,7 +163,7 @@ void online_single_head_attention(
 
 template<class T>
 void flash_attention_host(
-    T *out, T const *Q, T const *K, T const *V, 
+    T *out, T const *Q, T const *K, T const *V,
     std::size_t batch_size, std::size_t num_heads, std::size_t seq_len, std::size_t depth
 ) {
     /*

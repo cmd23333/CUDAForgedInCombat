@@ -6,7 +6,14 @@ set(CMAKE_CUDA_COMPILER /usr/local/cuda/bin/nvcc)
 
 project(CUDA_FORGED_IN_COMBAT LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 17)
+
+# used in cuda-gdb
+# set(CMAKE_BUILD_TYPE Debug)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+# set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O0 -g -G -keep") # 为了使用 Nsight + cuda-gdb 调试
+
 set(CMAKE_BUILD_TYPE Release)
+
 find_package(CUDA REQUIRED)
 set(CMAKE_CUDA_ARCHITECTURES 89)  # 我用的 4070
 

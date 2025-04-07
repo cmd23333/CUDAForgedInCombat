@@ -1,5 +1,6 @@
 #include "combat/flash_attention/host_multi_head_attention.hpp"
 #include "combat/flash_attention/host_flash_attention.hpp"
+#include "combat/flash_attention/device_flash_attention.cuh"
 
 #include "tools/generator.hpp"
 #include "tools/show.hpp"
@@ -52,7 +53,7 @@ int main() {
     combat::tools::show_matrix(ground_truth.data(), seq_len, depth, "mha");
 
     // quiz 1: calculate in host cpu
-    {
+    if (0) {
         auto const *tag = "flash attention host";
         std::vector<float> out;
         out.reserve(Q.size());
@@ -61,6 +62,18 @@ int main() {
             combat::flash_attention::flash_attention_host<float>(out.data(), Q.data(), K.data(), V.data(), batch_size, num_heads, seq_len, depth);
         }
         check_result(ground_truth.data(), out.data(), seq_len, depth, "flash attention host");
+    }
+
+    // quiz 2: calculate in device cuda
+    {
+        auto const *tag = "flash attention cuda";
+        std::vector<float> out;
+        out.reserve(Q.size());
+        {
+            auto t = combat::tools::Timer(tag);
+            combat::flash_attention::flash_attention_cuda<float, depth>(out.data(), Q.data(), K.data(), V.data(), batch_size, num_heads, seq_len);
+        }
+        check_result(ground_truth.data(), out.data(), seq_len, depth, "flash attention cuda");
     }
 
     return 0;
