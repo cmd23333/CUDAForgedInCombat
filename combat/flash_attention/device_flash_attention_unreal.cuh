@@ -1,3 +1,9 @@
+/*
+    计算结果是对的, 也用到了 CUDA, 但这个实现方式是错误的
+    每次 launch kernel 只计算一个 batch, head
+    并且每个 block 只管一个 O_tile 的计算结果, 有大量资源浪费
+*/
+
 #pragma once
 
 #include <string.h>

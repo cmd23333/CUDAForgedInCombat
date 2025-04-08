@@ -1,6 +1,6 @@
 #include "combat/flash_attention/host_multi_head_attention.hpp"
 #include "combat/flash_attention/host_flash_attention.hpp"
-#include "combat/flash_attention/device_flash_attention.cuh"
+#include "combat/flash_attention/device_flash_attention_unreal.cuh"
 
 #include "tools/generator.hpp"
 #include "tools/show.hpp"
