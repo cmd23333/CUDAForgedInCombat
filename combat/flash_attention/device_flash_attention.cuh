@@ -10,7 +10,7 @@ namespace combat {
 namespace flash_attention {
 
 template<class T, int Bc, int Br>
-__global__ kernel_flash_attention(
+__global__ void kernel_flash_attention(
     T *device_out, T const *device_Q, T const *device_K, T const *device_V,
     T *device_sum, T *device_max,
     std::size_t batch_size, std::size_t num_heads, std::size_t seq_len, std::size_t depth
@@ -38,15 +38,15 @@ __global__ kernel_flash_attention(
     T *q_tile = shm;
     T *k_tile = shm + Br * depth;
     T *v_tile = shm + Br * depth + Bc * depth;
-    T *att_tile = shm + Br * depth + 2 * Bc * depth;
+    T *a_tile = shm + Br * depth + 2 * Bc * depth;
 
     const int num_k_v_tiles = (seq_len + Bc - 1) / Bc; // k,v tile 的数量, 向上取整
     const int num_q_tiles = (seq_len + Br - 1) / Bc; // q tile 的数量, 向上取整
 
     for (int i=0; i<num_q_tiles; ++i) {
         // 把每行的初始 sum 赋值为 0, max 赋值为 T 类型的最小值
-        device_sum[i*Br+threadIdx.x] = 0;
-        device_max[i*Br+threadIdx.x] = std::numeric_limits<T>::lowest();
+        single_sum[i*Br+threadIdx.x] = 0;
+        single_max[i*Br+threadIdx.x] = std::numeric_limits<T>::lowest();
     }
 
     // 外层对 K 和 V 遍历
@@ -80,31 +80,38 @@ __global__ kernel_flash_attention(
             // __syncthreads(); 这里也不用同步, 原因同上
 
             // 计算新的 max(随着 k/a_tile 往右移动), 其实每个 a_tile_ij 算完就可以做. 这里把他弄出来了
-            T new_max = single_max[q_tile_index * Br + threadIdx.x];
+            T old_max = single_max[q_tile_index * Br + threadIdx.x];
+            T new_max = old_max;
             for (int j=0; j<Bc; ++j) {
                 // 如果知道类型, 可以用内置函数加速, 比如固定 __fmaxf() 或者用 if constexpr (std::is_same_v<>) 写分支
                 new_max = std::max(a_tile[threadIdx.x * Bc + j], new_max);   
             }
-            
+
             // 计算新的 sum(随着 k/a_tile 往右移动)
-            T new_sum = single_sum[q_tile_index * Br + threadIdx.x];
+            T old_sum = single_sum[q_tile_index * Br + threadIdx.x];
+            T new_sum = old_sum;
             // 先根据 max 调整原有的 sum
-            T sum_adjust_coef = std::exp(single_max[q_tile_index * Br + threadIdx.x] - new_max);
+            T sum_adjust_coef = std::exp(old_max - new_max);
             new_sum *= sum_adjust_coef;
             for (int j=0; j<Bc; ++j) {
-                new_sum += std::exp(a_tile[threadIdx.x * Bc + j] - new_sum);
+                new_sum += std::exp(a_tile[threadIdx.x * Bc + j] - new_max);
             }
-            
+
             // 将结果更新到 O_tile(直接写入 O)
             // 根据矩阵乘法的数学原理, 需要更新 num_k_v_tiles 次
-            T *o_tile = single_O[q_tile_index * Br * depth]
+            T *o_tile = single_O + q_tile_index * Br * depth;
+
+            // 根据新的 max, sum 调整 O_tile 的值
+            T o_adjust_coef = std::exp(old_max - new_max) * old_sum / new_sum;
             for (int di=0; di<depth; ++di) {
                 // 数学: o[i][j] = softmax(a[i][k]) * v[k][j], for k in range(Bc)
                 // 代码: i=threadIdx.x, j=di
                 T o_ij = 0;
                 for (int k=0; k<Bc; ++k)
-                    o_ij += std::exp(a_tile[threadIdx.x * Bc + k] - new_max) / new_sum * v_tile[k * depth + di]
+                    o_ij += std::exp(a_tile[threadIdx.x * Bc + k] - new_max) / new_sum * v_tile[k * depth + di];
                 
+                // 先调整, 再相加
+                o_tile[threadIdx.x * depth + di] *= o_adjust_coef;
                 o_tile[threadIdx.x * depth + di] += o_ij;
             }
 
@@ -139,14 +146,18 @@ void flash_attention_cuda(
     constexpr int TileSize = 32;
     dim3 threads = {TileSize, 1, 1};
     dim3 blocks = {batch_size, num_heads, 1};
+    // 可以放下单个 q,k,v tile + attention_logit tile
+    int shared_memory_size = (TileSize * depth * 3 + TileSize * TileSize) * sizeof(T);
 
-    kernel_flash_attention<T, TileSize, TileSize><<<blocks, threads>>>(
+    kernel_flash_attention<T, TileSize, TileSize><<<blocks, threads, shared_memory_size, nullptr>>>(
         device_out, device_Q, device_K, device_V,
         device_sum, device_max,
         batch_size, num_heads, seq_len, depth
     );
+    std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
 
     cudaMemcpy(out, device_out, sizeof_tensor, cudaMemcpyDefault);
+    std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
     cudaFree(device_out);
     cudaFree(device_Q);
     cudaFree(device_K);

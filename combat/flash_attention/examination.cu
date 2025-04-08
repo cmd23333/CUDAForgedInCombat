@@ -1,6 +1,7 @@
 #include "combat/flash_attention/host_multi_head_attention.hpp"
 #include "combat/flash_attention/host_flash_attention.hpp"
 #include "combat/flash_attention/device_flash_attention_unreal.cuh"
+#include "combat/flash_attention/device_flash_attention.cuh"
 
 #include "tools/generator.hpp"
 #include "tools/show.hpp"
@@ -21,7 +22,7 @@ void check_result(T* ground_truth, T* calculate_result, std::size_t height, std:
         std::cout << "Pass " << tag << std::endl;
     } else {
         std::cout << "Fail " << tag << std::endl;
-        if (num_elements < 8*16+1) {
+        if (num_elements < 16*32+1) {
             combat::tools::show_matrix(ground_truth, height, width, "ground truth");
             combat::tools::show_matrix(calculate_result, height, width, "calculate result");
         }
@@ -33,7 +34,7 @@ int main() {
     std::size_t constexpr batch_size = 1;
     std::size_t constexpr num_heads  = 1;
     std::size_t constexpr depth = 16;
-    std::size_t constexpr seq_len  = 8;
+    std::size_t constexpr seq_len  = 32;
 
     int const seed = 233;
     auto Q = combat::tools::generate_batch_tensor<float>(batch_size, num_heads, seq_len, depth, 0, 1, seed);
@@ -65,13 +66,25 @@ int main() {
     }
 
     // quiz 2: calculate in device cuda
+    if (0) {
+        auto const *tag = "flash attention cuda unreal";
+        std::vector<float> out;
+        out.reserve(Q.size());
+        {
+            auto t = combat::tools::Timer(tag);
+            combat::flash_attention::unreal::flash_attention_cuda<float, depth>(out.data(), Q.data(), K.data(), V.data(), batch_size, num_heads, seq_len);
+        }
+        check_result(ground_truth.data(), out.data(), seq_len, depth, "flash attention cuda unreal");
+    }
+
+    // quiz 3: calculate in device cuda
     {
         auto const *tag = "flash attention cuda";
         std::vector<float> out;
         out.reserve(Q.size());
         {
             auto t = combat::tools::Timer(tag);
-            combat::flash_attention::flash_attention_cuda<float, depth>(out.data(), Q.data(), K.data(), V.data(), batch_size, num_heads, seq_len);
+            combat::flash_attention::flash_attention_cuda<float>(out.data(), Q.data(), K.data(), V.data(), batch_size, num_heads, seq_len, depth);
         }
         check_result(ground_truth.data(), out.data(), seq_len, depth, "flash attention cuda");
     }

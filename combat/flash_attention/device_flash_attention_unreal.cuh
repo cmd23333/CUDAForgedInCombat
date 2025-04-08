@@ -17,6 +17,7 @@ namespace combat {
 
 namespace flash_attention {
 
+namespace unreal {
 // CUDA 不支持 float 的 atomicMax
 __device__ float atomicMax(float* address, float val) {
     int* address_as_int = (int*)address;
@@ -209,6 +210,8 @@ void flash_attention_cuda(
     cudaFree(device_K);
     cudaFree(device_V);
 }
+
+} // namespace unreal
 
 } // namespace flash_attention
 
