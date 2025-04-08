@@ -17,7 +17,7 @@ void single_head_attention(
         all of them have shape = [seq_len, depth]
     */
 
-    const auto num_elements = seq_len * depth;
+    const auto num_elements = seq_len * seq_len;
     T *attention = (T *)malloc(sizeof(T) * num_elements);
     
     for (std::size_t i=0; i<seq_len; ++i) {
